@@ -1,15 +1,26 @@
-// main.dart
-import 'dart:convert';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'firebase_options.dart';
 import 'product_details_screen.dart';
+import 'account_options_screen.dart';
+import 'login_screen.dart';
+import 'register_screen.dart';
+import 'firebase_service.dart';
+import 'add_product_screen.dart';  // Importa la pantalla de agregar producto
+import 'edit_product_screen.dart'; // Importa la pantalla de editar producto
+import 'carrito_compras.dart';
 
-void main() {
-  runApp(MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(const MyApp());
 }
 
 class Product {
-  final int id;
+
+  final String id;
   final String name;
   final String brand;
   final String model;
@@ -26,21 +37,25 @@ class Product {
     required this.description,
     required this.imageUrl,
   });
-
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['idproducto'],
+      id: json['documentId'],
       name: json['nombre'],
       brand: json['marca'],
       model: json['modelo'],
-      price: json['precio'].toDouble(),
+      price: json['precio'] is String ? double.tryParse(json['precio']) ?? 0.0 : json['precio'],
       description: json['descripcion'],
       imageUrl: json['imgprincipal'],
     );
   }
 }
 
+
+
+
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -48,7 +63,11 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,
       ),
-      home: MyHomePage(title: 'Carrito'),
+      home: const MyHomePage(title: 'Carrito'),
+      routes: {
+        '/login': (context) => LoginScreen(),
+        '/accountOptions': (context) => AccountOptionsScreen(),
+      },
     );
   }
 }
@@ -63,8 +82,12 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  late List<Product> products = []; // Inicializa la lista como una lista vacía
+  late List<Product> products = [];
+  late List<Product> filteredProducts = [];
   int _selectedIndex = 0;
+  String? _userRole;
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -72,40 +95,118 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> fetchProducts() async {
-    final response = await http.get(Uri.parse('https://jgg2pllk-5251.use.devtunnels.ms/Api/Productos'));
-    print(response.body);
-
-    if (response.statusCode == 200) {
-      final List<dynamic> responseData = json.decode(response.body);
+    try {
+      final List<Map<String, dynamic>> responseData = await getProducts();
       setState(() {
         products = responseData.map((data) => Product.fromJson(data)).toList();
+        filteredProducts = products;  // Initialize filteredProducts with all products
       });
-    } else {
-      throw Exception('Failed to load products');
+    } catch (e) {
+      print('Error al obtener productos: $e');
     }
   }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
+      if (_selectedIndex == 2) { // Verificar si se seleccionó el ícono del carrito
+        _navigateToCart(); // Navegar a la pantalla del carrito
+      } else if (_selectedIndex == 1) {
+        _navigateToAccountOptions(); // Navegar a la pantalla de opciones de cuenta
+      }
     });
   }
 
-  void _onProductSelected(Product product) {
-    Navigator.push(
+
+  void _onProductSelected(Product product) async {
+    String? documentId = await product.id;
+
+    if (documentId != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ProductDetailsScreen(
+            documentId: documentId,
+            productName: product.name,
+            productDescription: product.description,
+            productImageUrl: product.imageUrl,
+            productBrand: product.brand,
+            productModel: product.model,
+            productPrice: product.price,
+          ),
+        ),
+      );
+    } else {
+      // Manejar el caso en que no se puede encontrar el ID del documento
+      print('Error: No se pudo encontrar el ID del documento para el producto');
+    }
+  }
+
+
+
+  void _navigateToAccountOptions() async {
+    final role = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => AccountOptionsScreen()),
+    );
+
+    if (role != null) {
+      setState(() {
+        _userRole = role;
+      });
+    }
+  }
+
+  void _navigateToCart() async {
+    // Navegar a la pantalla del carrito y esperar el resultado
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ShoppingCartScreen(userId: 'someUserId')), // Reemplaza 'someUserId' con el ID de usuario adecuado
+    );
+
+    // Si el resultado no es nulo, actualiza el estado del usuario
+    if (result != null) {
+      setState(() {
+        _userRole = result;
+      });
+    }
+  }
+
+
+  void _filterProducts(String query) {
+    setState(() {
+      _searchQuery = query;
+      filteredProducts = products.where((product) {
+        return product.name.toLowerCase().contains(query.toLowerCase()) ||
+            product.description.toLowerCase().contains(query.toLowerCase()) ||
+            product.brand.toLowerCase().contains(query.toLowerCase()) ||
+            product.model.toLowerCase().contains(query.toLowerCase());
+      }).toList();
+    });
+  }
+
+  Future<void> _navigateToAddProduct() async {
+    bool? result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => AddProductScreen()),
+    );
+
+    if (result == true) {
+      fetchProducts();
+    }
+  }
+
+  Future<void> _navigateToEditProduct(String documentId, Product productData) async {
+    bool? result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ProductDetailsScreen(
-          productName: product.name, // Pasamos el nombre del producto
-          productDescription: product.description, // Pasamos la descripción del producto
-          productImageUrl: product.imageUrl,
-          productBrand: product.brand,
-          productModel: product.model,
-          productPrice: product.price,
-
-        ),
+        builder: (context) => EditProductScreen(documentId: documentId, productData: productData),
       ),
     );
+
+    if (result == true) {
+      fetchProducts();
+    }
   }
 
   @override
@@ -127,20 +228,20 @@ class _MyHomePageState extends State<MyHomePage> {
                     children: [
                       Expanded(
                         child: TextField(
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             hintText: 'Buscar productos...',
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.symmetric(horizontal: 16.0),
                           ),
                           onChanged: (value) {
-                            // Aquí puedes manejar los cambios en el texto de búsqueda
+                            _filterProducts(value);  // Filtrar productos a medida que se escribe
                           },
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.search),
+                        icon: const Icon(Icons.search),
                         onPressed: () {
-                          // Acción cuando se presiona el botón de búsqueda
+                          _filterProducts(_searchQuery);  // Filtrar productos cuando se presiona el botón de búsqueda
                         },
                       ),
                     ],
@@ -151,42 +252,55 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ),
-
-      body: products.isNotEmpty // Verifica si la lista de productos no está vacía
+      body: filteredProducts.isNotEmpty
           ? GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2, // Mostrar dos tarjetas por fila
-          crossAxisSpacing: 8.0, // Espaciado horizontal entre las tarjetas
-          mainAxisSpacing: 8.0, // Espaciado vertical entre las tarjetas
-          childAspectRatio: 0.75, // Relación de aspecto para mantener el tamaño de las tarjetas
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 8.0,
+          mainAxisSpacing: 8.0,
+          childAspectRatio: 0.75,
         ),
-        itemCount: products.length,
+        itemCount: filteredProducts.length,
         itemBuilder: (BuildContext context, int index) {
           return GestureDetector(
             onTap: () {
-              _onProductSelected(products[index]);
+              _onProductSelected(filteredProducts[index]);
             },
             child: Card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  FadeInImage(
-                    placeholder: AssetImage('assets/placeholder.webp'), // Imagen de carga mientras se carga la imagen real
-                    image: NetworkImage(products[index].imageUrl),
-                    fit: BoxFit.cover, // Ajusta la imagen para cubrir el contenedor
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(4.0),
+                        topRight: Radius.circular(4.0),
+                      ),
+                      child: FadeInImage(
+                        placeholder: const AssetImage('assets/placeholder.webp'),
+                        image: NetworkImage(filteredProducts[index].imageUrl),
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                      ),
+                    ),
                   ),
                   Padding(
-                    padding: EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.all(8.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          products[index].name,
-                          style: TextStyle(
+                          filteredProducts[index].name,
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(products[index].description),
+                        Text(
+                          filteredProducts[index].description,
+                          maxLines: 2, // Limitar a 2 líneas
+                          overflow: TextOverflow.ellipsis, // Mostrar puntos suspensivos
+                        ),
                       ],
                     ),
                   ),
@@ -196,7 +310,7 @@ class _MyHomePageState extends State<MyHomePage> {
           );
         },
       )
-          : Center(child: CircularProgressIndicator()),
+          : const Center(child: CircularProgressIndicator()),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -215,6 +329,12 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ],
       ),
+      floatingActionButton: _userRole == 'admin'
+          ? FloatingActionButton(
+        onPressed: _navigateToAddProduct,
+        child: Icon(Icons.add),
+      )
+          : null,
     );
   }
 }

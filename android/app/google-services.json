@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "357145398189",
+    "project_id": "carritologin",
+    "storage_bucket": "carritologin.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:357145398189:android:3d207c0f44a4127ad72f24",
+        "android_client_info": {
+          "package_name": "com.carrito.carrito"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "357145398189-41jnt95tpp1l19k2hmfqllo2t8ickrv3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.carrito.carrito",
+            "certificate_hash": "80d1d456172a98058ac9ae23fe43783aa2a325b9"
+          }
+        },
+        {
+          "client_id": "357145398189-bi79fofi94dj6ks3gflqhj9g3kap10rk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXADMxH3wFa9A788pS6NsV4ShKiBSjep0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "357145398189-bi79fofi94dj6ks3gflqhj9g3kap10rk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "357145398189-ah5nv1frpr3a80dg98tdui1j6f39lcec.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.carrito.carrito"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
